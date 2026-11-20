@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ely-ops-automator"
+version = "1.0.0"
+description = "Scheduled daily bookkeeping reconciliation, anomaly auditing, and AI wholesale restock briefing pipeline for ely.pos."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "firebase-admin>=6.6.0",
+    "google-genai>=1.10.0",
+    "pydantic>=2.9.0",
+    "python-dotenv>=1.0.1",
+    "tzdata>=2024.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+]
+
+[project.scripts]
+ely-ops = "ely_ops.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

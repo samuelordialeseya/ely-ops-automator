@@ -1,0 +1,68 @@
+name: Daily POS Ops Briefing
+
+on:
+  schedule:
+    # 13:00 UTC = 21:00 (9:00 PM) Asia/Manila (PHT)
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      target_date:
+        description: "Optional store date override (YYYY-MM-DD, defaults to today PHT)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Generate CSV/HTML artifacts without sending SMTP email"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  run-daily-briefing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run unit tests
+        run: pytest -v
+
+      - name: Run ely-ops-automator (read-only Firestore)
+        env:
+          FIREBASE_SERVICE_ACCOUNT_B64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_B64 }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
+          REPORT_RECIPIENT_EMAIL: ${{ secrets.REPORT_RECIPIENT_EMAIL }}
+          TIMEZONE: "Asia/Manila"
+          OUTPUT_DIR: "output"
+        run: |
+          ARGS="--source firestore"
+          if [ -n "${{ inputs.target_date }}" ]; then
+            ARGS="$ARGS --date ${{ inputs.target_date }}"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          python -m ely_ops.main $ARGS
+
+      - name: Upload daily bookkeeper & velocity artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ely-ops-report-${{ github.run_number }}
+          path: output/
+          retention-days: 90
