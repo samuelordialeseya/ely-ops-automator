@@ -6,7 +6,11 @@ import csv
 from decimal import Decimal
 from pathlib import Path
 
-from ely_ops.ai_briefing import build_fallback_briefing
+from ely_ops.ai_briefing import (
+    _check_and_record_ai_quota,
+    build_fallback_briefing,
+    generate_ops_briefing,
+)
 from ely_ops.analytics import (
     build_daily_report,
     has_float_precision_noise,
@@ -194,3 +198,48 @@ def test_exports_and_fallback_email_render(tmp_path: Path) -> None:
     assert "1,622.29" in html_body
     assert "Lacatan (Davao)" in html_body
     assert "1,622.29" in text_body
+
+
+def test_ai_free_tier_safety_walls(tmp_path: Path) -> None:
+    report = build_daily_report(
+        target_date="2026-05-06",
+        orders_window=_sample_orders(),
+        products=_sample_products(),
+        store_name="Ely's Fresh Fruits & Veggies",
+    )
+
+    # 1. Non-free-tier model is blocked and falls back safely without calling Gemini
+    blocked = generate_ops_briefing(
+        report=report,
+        api_key="dummy-key-never-called",
+        model_name="gemini-2.5-pro",
+        use_ai=True,
+        allow_non_free_model=False,
+    )
+    assert blocked.generated_by == "deterministic-fallback"
+
+    # 2. Daily rate limit + cooldown guard blocks burst loops
+    state_file = tmp_path / ".ai_rate_limit.json"
+    ok1, _ = _check_and_record_ai_quota(state_file, max_calls_per_day=1, min_cooldown_seconds=15)
+    ok2, reason2 = _check_and_record_ai_quota(state_file, max_calls_per_day=1, min_cooldown_seconds=15)
+    assert ok1 is True
+    assert ok2 is False
+    assert reason2 is not None and "cap reached" in reason2
+
+    # 3. Cooldown guard blocks rapid consecutive calls even when daily cap > 1
+    state_file2 = tmp_path / ".ai_rate_limit_burst.json"
+    ok3, _ = _check_and_record_ai_quota(state_file2, max_calls_per_day=5, min_cooldown_seconds=60)
+    ok4, reason4 = _check_and_record_ai_quota(state_file2, max_calls_per_day=5, min_cooldown_seconds=60)
+    assert ok3 is True
+    assert ok4 is False
+    assert reason4 is not None and "Cooldown" in reason4
+
+
+def test_repo_contains_no_leaked_secrets() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    for folder in ("src", "tests", ".github"):
+        for file_path in (repo_root / folder).rglob("*"):
+            if file_path.is_file() and file_path.suffix in {".py", ".yml", ".yaml", ".md"}:
+                content = file_path.read_text(encoding="utf-8")
+                assert "AIza" not in content, f"Possible Google API key in {file_path}"
+                assert "BEGIN PRIVATE KEY" not in content, f"Possible private key in {file_path}"

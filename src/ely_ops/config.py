@@ -23,6 +23,10 @@ class Settings:
     store_name: str
     timezone: str
     output_dir: Path
+    max_firestore_reads: int
+    max_ai_calls_per_day: int
+    max_ai_output_tokens: int
+    allow_non_free_model: bool
 
     @classmethod
     def from_env(cls, env_file: str | Path | None = None) -> "Settings":
@@ -44,6 +48,10 @@ class Settings:
             store_name=os.getenv("STORE_NAME", "Ely's Fresh Fruits & Veggies (ely.pos)").strip(),
             timezone=os.getenv("TIMEZONE", "Asia/Manila").strip() or "Asia/Manila",
             output_dir=Path(os.getenv("OUTPUT_DIR", "output").strip() or "output"),
+            max_firestore_reads=max(1, min(int(os.getenv("MAX_FIRESTORE_READS", "500")), 1500)),
+            max_ai_calls_per_day=max(1, min(int(os.getenv("MAX_AI_CALLS_PER_DAY", "10")), 50)),
+            max_ai_output_tokens=max(256, min(int(os.getenv("MAX_AI_OUTPUT_TOKENS", "1200")), 2048)),
+            allow_non_free_model=os.getenv("ALLOW_NON_FREE_MODEL", "false").strip().lower() == "true",
         )
 
 

@@ -112,8 +112,10 @@ def run_pipeline(args: argparse.Namespace) -> int:
             service_account_path=settings.firebase_service_account_path,
             service_account_b64=settings.firebase_service_account_b64,
         )
-        orders_window = client.fetch_orders_for_range(window_start, target_date)
-        products = client.fetch_products()
+        orders_window = client.fetch_orders_for_range(
+            window_start, target_date, max_docs=settings.max_firestore_reads
+        )
+        products = client.fetch_products(max_docs=settings.max_firestore_reads)
 
     logger.info(
         "Loaded %d orders across 8-day window and %d catalog products (read-only).",
@@ -133,6 +135,10 @@ def run_pipeline(args: argparse.Namespace) -> int:
         api_key=settings.gemini_api_key,
         model_name=settings.gemini_model,
         use_ai=not args.no_ai,
+        allow_non_free_model=settings.allow_non_free_model,
+        max_output_tokens=settings.max_ai_output_tokens,
+        max_calls_per_day=settings.max_ai_calls_per_day,
+        rate_limit_file=output_dir / ".ai_rate_limit.json",
     )
 
     ledger_path = export_bookkeeper_ledger(report, output_dir)

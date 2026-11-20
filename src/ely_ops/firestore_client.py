@@ -9,11 +9,15 @@ from __future__ import annotations
 import base64
 import csv
 import json
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
 from ely_ops.models import OrderItem, OrderRecord, ProductRecord
+
+MAX_WINDOW_DAYS = 8
+DEFAULT_MAX_DOCS = 500
 
 
 def _to_decimal(value: Any, default: str = "0") -> Decimal:
@@ -130,12 +134,23 @@ class ReadOnlyFirestoreClient:
 
         self._db = firestore.client(app=self._app)
 
-    def fetch_orders_for_range(self, start_date: str, end_date: str) -> list[OrderRecord]:
-        """Read-only range query on root `orders` collection by `raw_date`."""
+    def fetch_orders_for_range(
+        self, start_date: str, end_date: str, max_docs: int = DEFAULT_MAX_DOCS
+    ) -> list[OrderRecord]:
+        """Read-only range query on root `orders` collection with hard window & doc limits."""
+        span_days = (date.fromisoformat(end_date) - date.fromisoformat(start_date)).days
+        if span_days < 0 or span_days > MAX_WINDOW_DAYS:
+            raise ValueError(
+                f"Date window {start_date}..{end_date} ({span_days} days) exceeds "
+                f"safety cap of {MAX_WINDOW_DAYS} days to protect Firestore free tier."
+            )
+
+        capped_limit = max(1, min(max_docs, 1500))
         query = (
             self._db.collection("orders")
             .where(filter=self._FieldFilter("raw_date", ">=", start_date))
             .where(filter=self._FieldFilter("raw_date", "<=", end_date))
+            .limit(capped_limit)
         )
         orders: list[OrderRecord] = []
         for snap in query.stream():
@@ -144,10 +159,11 @@ class ReadOnlyFirestoreClient:
         orders.sort(key=lambda o: (o.raw_date, o.created_at))
         return orders
 
-    def fetch_products(self) -> list[ProductRecord]:
-        """Read-only fetch of root `products` catalog."""
+    def fetch_products(self, max_docs: int = DEFAULT_MAX_DOCS) -> list[ProductRecord]:
+        """Read-only fetch of root `products` catalog with hard doc cap."""
+        capped_limit = max(1, min(max_docs, 1500))
         products: list[ProductRecord] = []
-        for snap in self._db.collection("products").stream():
+        for snap in self._db.collection("products").limit(capped_limit).stream():
             data = snap.to_dict() or {}
             products.append(_normalize_product_doc(snap.id, data))
         products.sort(key=lambda p: p.name.lower())

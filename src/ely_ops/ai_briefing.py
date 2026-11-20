@@ -8,10 +8,24 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime, timezone
+from pathlib import Path
 
 from ely_ops.models import DailyReport, OpsBriefing, RestockPriority
 
 logger = logging.getLogger(__name__)
+
+# Hard allowlist of low-cost / free-tier Flash models so paid Pro models cannot run accidentally
+FREE_TIER_MODELS = frozenset(
+    {
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+    }
+)
+MAX_PROMPT_CHARS = 12_000
+MIN_COOLDOWN_SECONDS = 15
 
 PERISHABLE_KEYWORDS = (
     "kang kong",
@@ -183,21 +197,84 @@ def build_fallback_briefing(report: DailyReport) -> OpsBriefing:
     )
 
 
+def _check_and_record_ai_quota(
+    state_file: Path,
+    max_calls_per_day: int,
+    min_cooldown_seconds: int = MIN_COOLDOWN_SECONDS,
+) -> tuple[bool, str | None]:
+    """Enforce a hard daily AI call ceiling & cooldown to prevent runaway quota burn."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    now_ts = datetime.now(timezone.utc).timestamp()
+
+    state = {"date": today, "count": 0, "last_call_ts": 0.0}
+    if state_file.exists():
+        try:
+            loaded = json.loads(state_file.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict) and loaded.get("date") == today:
+                state["count"] = int(loaded.get("count", 0))
+                state["last_call_ts"] = float(loaded.get("last_call_ts", 0.0))
+        except (ValueError, OSError):
+            pass
+
+    if state["count"] >= max_calls_per_day:
+        return False, f"Daily AI safety cap reached ({state['count']}/{max_calls_per_day})."
+
+    elapsed = now_ts - state["last_call_ts"]
+    if state["last_call_ts"] > 0 and elapsed < min_cooldown_seconds:
+        return (
+            False,
+            f"Cooldown active ({elapsed:.1f}s < {min_cooldown_seconds}s) to prevent accidental burst.",
+        )
+
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    state["count"] += 1
+    state["last_call_ts"] = now_ts
+    state_file.write_text(json.dumps(state), encoding="utf-8")
+    return True, None
+
+
 def generate_ops_briefing(
     report: DailyReport,
     api_key: str | None,
     model_name: str = "gemini-2.5-flash",
     use_ai: bool = True,
+    *,
+    allow_non_free_model: bool = False,
+    max_output_tokens: int = 1200,
+    max_calls_per_day: int = 10,
+    rate_limit_file: Path | None = None,
 ) -> OpsBriefing:
-    """Generate a structured owner briefing via Gemini, falling back safely on any error."""
+    """Generate a structured owner briefing via Gemini with strict free-tier safety walls."""
     if not use_ai or not api_key or report.order_count == 0:
         return build_fallback_briefing(report)
+
+    if not allow_non_free_model and model_name not in FREE_TIER_MODELS:
+        logger.warning(
+            "Model '%s' is outside FREE_TIER_MODELS %s; falling back to deterministic briefing.",
+            model_name,
+            sorted(FREE_TIER_MODELS),
+        )
+        return build_fallback_briefing(report)
+
+    payload_text = json.dumps(_build_verified_payload(report), indent=2)
+    if len(payload_text) > MAX_PROMPT_CHARS:
+        logger.warning(
+            "Prompt payload (%d chars) exceeds safety limit (%d); using deterministic fallback.",
+            len(payload_text),
+            MAX_PROMPT_CHARS,
+        )
+        return build_fallback_briefing(report)
+
+    if rate_limit_file is not None:
+        allowed, reason = _check_and_record_ai_quota(rate_limit_file, max_calls_per_day)
+        if not allowed:
+            logger.warning("AI safety wall triggered: %s Using deterministic fallback.", reason)
+            return build_fallback_briefing(report)
 
     try:
         from google import genai
         from google.genai import types
 
-        payload = _build_verified_payload(report)
         system_instruction = (
             "You are an experienced Philippine fresh-produce retail operations lead and "
             "bookkeeper advising the owner of Ely's Fresh Fruits & Veggies. "
@@ -211,7 +288,7 @@ def generate_ops_briefing(
         prompt = (
             "Generate the End-of-Day Owner & Bookkeeper Ops Briefing strictly matching "
             "the JSON schema from this verified POS analytics snapshot:\n\n"
-            f"{json.dumps(payload, indent=2)}"
+            f"{payload_text}"
         )
 
         client = genai.Client(api_key=api_key)
@@ -221,6 +298,7 @@ def generate_ops_briefing(
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=0.2,
+                max_output_tokens=max_output_tokens,
                 response_mime_type="application/json",
                 response_schema=OpsBriefing,
             ),
