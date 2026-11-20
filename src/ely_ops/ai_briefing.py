@@ -276,6 +276,7 @@ def generate_ops_briefing(
     try:
         from google import genai
         from google.genai import types
+        import time
 
         system_instruction = (
             "You are an experienced Philippine fresh-produce retail operations lead and "
@@ -294,27 +295,53 @@ def generate_ops_briefing(
         )
 
         client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=0.2,
-                max_output_tokens=max_output_tokens,
-                response_mime_type="application/json",
-                response_schema=OpsBriefing,
-            ),
-        )
 
-        if response.parsed is not None and isinstance(response.parsed, OpsBriefing):
-            briefing = response.parsed
-            briefing.generated_by = f"gemini:{model_name}"
-            return briefing
+        models_to_try = [model_name]
+        for fallback_candidate in ("gemini-2.0-flash", "gemini-2.5-flash-lite"):
+            if fallback_candidate in FREE_TIER_MODELS and fallback_candidate not in models_to_try:
+                models_to_try.append(fallback_candidate)
 
-        raw_text = response.text or ""
-        briefing = OpsBriefing.model_validate_json(raw_text)
-        briefing.generated_by = f"gemini:{model_name}"
-        return briefing
+        last_exc: Exception | None = None
+        for target_model in models_to_try:
+            for attempt in range(2):
+                try:
+                    response = client.models.generate_content(
+                        model=target_model,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_instruction,
+                            temperature=0.2,
+                            max_output_tokens=max_output_tokens,
+                            response_mime_type="application/json",
+                            response_schema=OpsBriefing,
+                        ),
+                    )
+
+                    if response.parsed is not None and isinstance(response.parsed, OpsBriefing):
+                        briefing = response.parsed
+                        briefing.generated_by = f"gemini:{target_model}"
+                        return briefing
+
+                    raw_text = response.text or ""
+                    briefing = OpsBriefing.model_validate_json(raw_text)
+                    briefing.generated_by = f"gemini:{target_model}"
+                    return briefing
+                except Exception as exc:
+                    last_exc = exc
+                    err_msg = str(exc)
+                    if any(term in err_msg for term in ("503", "UNAVAILABLE", "high demand")):
+                        logger.warning(
+                            "Model %s attempt %d hit high demand (503); backing off 3s...",
+                            target_model,
+                            attempt + 1,
+                        )
+                        time.sleep(3)
+                        continue
+                    break
+
+        if last_exc:
+            logger.warning("Gemini briefing failed (%s); using deterministic fallback.", last_exc)
+        return build_fallback_briefing(report)
     except Exception as exc:  # pragma: no cover - defensive runtime safeguard
         logger.warning("Gemini briefing failed (%s); using deterministic fallback.", exc)
         return build_fallback_briefing(report)
