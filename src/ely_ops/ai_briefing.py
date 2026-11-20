@@ -20,6 +20,7 @@ FREE_TIER_MODELS = frozenset(
     {
         "gemini-3.8-flash",
         "gemini-3.8-flash-lite",
+        "gemini-3.5-flash-lite",
         "gemini-2.5-flash",
         "gemini-2.5-flash-lite",
         "gemini-2.0-flash",
@@ -238,7 +239,7 @@ def _check_and_record_ai_quota(
 def generate_ops_briefing(
     report: DailyReport,
     api_key: str | None,
-    model_name: str = "gemini-3.8-flash",
+    model_name: str = "gemini-3.5-flash-lite",
     use_ai: bool = True,
     *,
     allow_non_free_model: bool = False,
@@ -297,7 +298,7 @@ def generate_ops_briefing(
         client = genai.Client(api_key=api_key)
 
         models_to_try = [model_name]
-        for fallback_candidate in ("gemini-2.0-flash", "gemini-2.5-flash-lite"):
+        for fallback_candidate in ("gemini-3.5-flash-lite", "gemini-3.8-flash-lite", "gemini-2.0-flash"):
             if fallback_candidate in FREE_TIER_MODELS and fallback_candidate not in models_to_try:
                 models_to_try.append(fallback_candidate)
 
