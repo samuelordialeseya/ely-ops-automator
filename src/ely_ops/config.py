@@ -39,7 +39,7 @@ class Settings:
             firebase_service_account_path=_opt("FIREBASE_SERVICE_ACCOUNT_PATH"),
             firebase_service_account_b64=_opt("FIREBASE_SERVICE_ACCOUNT_B64"),
             gemini_api_key=_opt("GEMINI_API_KEY"),
-            gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite").strip() or "gemini-3.5-flash-lite",
+            gemini_model=os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip() or "gemini-flash-latest",
             smtp_host=os.getenv("SMTP_HOST", "smtp.gmail.com").strip() or "smtp.gmail.com",
             smtp_port=int(os.getenv("SMTP_PORT", "587")),
             smtp_user=_opt("SMTP_USER"),
