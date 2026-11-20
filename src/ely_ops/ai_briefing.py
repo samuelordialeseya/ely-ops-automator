@@ -244,7 +244,7 @@ def _check_and_record_ai_quota(
 def generate_ops_briefing(
     report: DailyReport,
     api_key: str | None,
-    model_name: str = "gemini-flash-latest",
+    model_name: str = "gemini-3.5-flash",
     use_ai: bool = True,
     *,
     allow_non_free_model: bool = False,
@@ -304,10 +304,9 @@ def generate_ops_briefing(
 
         models_to_try = [model_name]
         for fallback_candidate in (
-            "gemini-flash-latest",
-            "gemini-flash-lite-latest",
             "gemini-3.5-flash",
-            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "gemini-3.5-flash-lite",
         ):
             if fallback_candidate in FREE_TIER_MODELS and fallback_candidate not in models_to_try:
                 models_to_try.append(fallback_candidate)
@@ -328,18 +327,32 @@ def generate_ops_briefing(
                         ),
                     )
 
-                    if response.parsed is not None and isinstance(response.parsed, OpsBriefing):
-                        briefing = response.parsed
-                        briefing.generated_by = f"gemini:{target_model}"
-                        return briefing
+                    if response.parsed is not None:
+                        if isinstance(response.parsed, OpsBriefing):
+                            briefing = response.parsed
+                            briefing.generated_by = f"gemini:{target_model}"
+                            return briefing
+                        if isinstance(response.parsed, dict):
+                            briefing = OpsBriefing.model_validate(response.parsed)
+                            briefing.generated_by = f"gemini:{target_model}"
+                            return briefing
 
-                    raw_text = response.text or ""
+                    raw_text = (response.text or "").strip()
+                    if raw_text.startswith("```"):
+                        lines = raw_text.splitlines()
+                        if lines and lines[0].startswith("```"):
+                            lines = lines[1:]
+                        if lines and lines[-1].startswith("```"):
+                            lines = lines[:-1]
+                        raw_text = "\n".join(lines).strip()
+
                     briefing = OpsBriefing.model_validate_json(raw_text)
                     briefing.generated_by = f"gemini:{target_model}"
                     return briefing
                 except Exception as exc:
                     last_exc = exc
                     err_msg = str(exc)
+                    logger.warning("Model %s attempt %d error: %s", target_model, attempt + 1, exc)
                     if any(term in err_msg for term in ("503", "UNAVAILABLE", "high demand")):
                         logger.warning(
                             "Model %s attempt %d hit high demand (503); backing off 3s...",
