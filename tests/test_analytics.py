@@ -237,9 +237,11 @@ def test_ai_free_tier_safety_walls(tmp_path: Path) -> None:
 
 def test_repo_contains_no_leaked_secrets() -> None:
     repo_root = Path(__file__).resolve().parents[1]
+    google_key_prefix = "AI" + "za"
+    private_key_marker = "BEGIN " + "PRIVATE KEY"
     for folder in ("src", "tests", ".github"):
         for file_path in (repo_root / folder).rglob("*"):
             if file_path.is_file() and file_path.suffix in {".py", ".yml", ".yaml", ".md"}:
                 content = file_path.read_text(encoding="utf-8")
-                assert "AIza" not in content, f"Possible Google API key in {file_path}"
-                assert "BEGIN PRIVATE KEY" not in content, f"Possible private key in {file_path}"
+                assert google_key_prefix not in content, f"Possible Google API key in {file_path}"
+                assert private_key_marker not in content, f"Possible private key in {file_path}"
