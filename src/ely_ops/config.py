@@ -39,7 +39,7 @@ class Settings:
             firebase_service_account_path=_opt("FIREBASE_SERVICE_ACCOUNT_PATH"),
             firebase_service_account_b64=_opt("FIREBASE_SERVICE_ACCOUNT_B64"),
             gemini_api_key=_opt("GEMINI_API_KEY"),
-            gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash").strip() or "gemini-3.5-flash",
+            gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite").strip() or "gemini-3.5-flash-lite",
             smtp_host=os.getenv("SMTP_HOST", "smtp.gmail.com").strip() or "smtp.gmail.com",
             smtp_port=int(os.getenv("SMTP_PORT", "587")),
             smtp_user=_opt("SMTP_USER"),
@@ -50,7 +50,7 @@ class Settings:
             output_dir=Path(os.getenv("OUTPUT_DIR", "output").strip() or "output"),
             max_firestore_reads=max(1, min(int(os.getenv("MAX_FIRESTORE_READS", "500")), 1500)),
             max_ai_calls_per_day=max(1, min(int(os.getenv("MAX_AI_CALLS_PER_DAY", "10")), 50)),
-            max_ai_output_tokens=max(256, min(int(os.getenv("MAX_AI_OUTPUT_TOKENS", "1200")), 2048)),
+            max_ai_output_tokens=max(256, min(int(os.getenv("MAX_AI_OUTPUT_TOKENS", "2048")), 4096)),
             allow_non_free_model=os.getenv("ALLOW_NON_FREE_MODEL", "false").strip().lower() == "true",
         )
 

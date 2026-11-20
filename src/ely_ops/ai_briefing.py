@@ -244,11 +244,11 @@ def _check_and_record_ai_quota(
 def generate_ops_briefing(
     report: DailyReport,
     api_key: str | None,
-    model_name: str = "gemini-3.5-flash",
+    model_name: str = "gemini-3.5-flash-lite",
     use_ai: bool = True,
     *,
     allow_non_free_model: bool = False,
-    max_output_tokens: int = 1200,
+    max_output_tokens: int = 2048,
     max_calls_per_day: int = 10,
     rate_limit_file: Path | None = None,
 ) -> OpsBriefing:
@@ -304,9 +304,9 @@ def generate_ops_briefing(
 
         models_to_try = [model_name]
         for fallback_candidate in (
+            "gemini-3.5-flash-lite",
             "gemini-3.5-flash",
             "gemini-3.8-flash",
-            "gemini-3.5-flash-lite",
         ):
             if fallback_candidate in FREE_TIER_MODELS and fallback_candidate not in models_to_try:
                 models_to_try.append(fallback_candidate)
