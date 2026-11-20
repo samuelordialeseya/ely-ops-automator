@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 # Hard allowlist of low-cost / free-tier Flash models so paid Pro models cannot run accidentally
 FREE_TIER_MODELS = frozenset(
     {
+        "gemini-3.8-flash",
+        "gemini-3.8-flash-lite",
         "gemini-2.5-flash",
         "gemini-2.5-flash-lite",
         "gemini-2.0-flash",
@@ -236,7 +238,7 @@ def _check_and_record_ai_quota(
 def generate_ops_briefing(
     report: DailyReport,
     api_key: str | None,
-    model_name: str = "gemini-2.5-flash",
+    model_name: str = "gemini-3.8-flash",
     use_ai: bool = True,
     *,
     allow_non_free_model: bool = False,
