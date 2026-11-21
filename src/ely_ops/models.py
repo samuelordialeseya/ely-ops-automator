@@ -69,7 +69,7 @@ class SkuVelocity:
     trailing_7d_total_qty: Decimal
     trailing_7d_daily_avg: Decimal
     velocity_ratio: Decimal | None
-    restock_signal: Literal["HIGH", "NORMAL", "LOW", "NEW"]
+    restock_signal: Literal["BUY MORE", "NORMAL", "BUY LESS", "NEW ITEM"]
 
 
 @dataclass(frozen=True)
@@ -118,8 +118,8 @@ class DailyReport:
 class RestockPriority(BaseModel):
     item_name: str = Field(description="Produce SKU name from the verified velocity table")
     unit: str = Field(description="Unit of measure (kg, tali, pc, pack, tray, etc.)")
-    signal: Literal["HIGH", "NORMAL", "LOW", "NEW"] = Field(
-        description="Restock urgency signal from the velocity table"
+    signal: Literal["BUY MORE", "NORMAL", "BUY LESS", "NEW ITEM"] = Field(
+        description="Morning market advice for tomorrow's 4:00 AM wholesale buy"
     )
     suggested_action: str = Field(
         description="Specific, practical wholesale buying note for the 4:00 AM market run"

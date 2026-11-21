@@ -85,8 +85,8 @@ def export_sku_velocity(report: DailyReport, output_dir: Path) -> Path:
         "today_revenue_php",
         "trailing_7d_total_qty",
         "trailing_7d_daily_avg_qty",
-        "velocity_ratio",
-        "restock_signal",
+        "times_normal_sales",
+        "morning_market_advice",
     ]
     with path.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
@@ -101,12 +101,12 @@ def export_sku_velocity(report: DailyReport, output_dir: Path) -> Path:
                     "today_revenue_php": f"{sku.today_revenue:.2f}",
                     "trailing_7d_total_qty": f"{sku.trailing_7d_total_qty:.3f}",
                     "trailing_7d_daily_avg_qty": f"{sku.trailing_7d_daily_avg:.3f}",
-                    "velocity_ratio": (
+                    "times_normal_sales": (
                         f"{sku.velocity_ratio:.2f}"
                         if sku.velocity_ratio is not None
                         else ""
                     ),
-                    "restock_signal": sku.restock_signal,
+                    "morning_market_advice": sku.restock_signal,
                 }
             )
     return path

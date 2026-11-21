@@ -364,14 +364,14 @@ def build_daily_report(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
             if ratio >= Decimal("1.35"):
-                signal = "HIGH"
+                signal = "BUY MORE"
             elif ratio <= Decimal("0.60"):
-                signal = "LOW"
+                signal = "BUY LESS"
             else:
                 signal = "NORMAL"
         else:
             ratio = None
-            signal = "NEW"
+            signal = "NEW ITEM"
 
         sku_velocities.append(
             SkuVelocity(

@@ -162,11 +162,11 @@ def test_build_daily_report_reconciliation_and_anomalies() -> None:
     assert "FLOAT_PRECISION_NOISE" in categories
     assert "UNCLOSED_PENDING" in categories
 
-    # Lacatan sold 9.5 kg vs 2.0 kg/day trailing -> 4.75x -> HIGH signal
+    # Lacatan sold 9.5 kg vs 2.0 kg/day trailing -> 4.75x -> BUY MORE signal
     lacatan = next(s for s in report.sku_velocities if s.sku_name == "Lacatan (Davao)")
     assert lacatan.today_qty == Decimal("9.500")
     assert lacatan.velocity_ratio == Decimal("4.75")
-    assert lacatan.restock_signal == "HIGH"
+    assert lacatan.restock_signal == "BUY MORE"
 
 
 def test_exports_and_fallback_email_render(tmp_path: Path) -> None:
@@ -187,6 +187,10 @@ def test_exports_and_fallback_email_render(tmp_path: Path) -> None:
     assert ledger_path.exists()
     assert velocity_path.exists()
     assert json_path.exists()
+
+    velocity_rows = list(csv.DictReader(velocity_path.open("r", encoding="utf-8")))
+    assert "morning_market_advice" in velocity_rows[0]
+    assert "times_normal_sales" in velocity_rows[0]
 
     rows = list(csv.DictReader(ledger_path.open("r", encoding="utf-8")))
     assert len(rows) == 3  # 2 orders + TOTAL footer

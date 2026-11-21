@@ -1,6 +1,6 @@
 # ely-ops-automator
 
-Scheduled, read-only **daily bookkeeping reconciliation, anomaly audit, and AI wholesale restock briefing** pipeline built for **ely.pos** (*Ely's Fresh Fruits & Veggies*).
+Scheduled, read-only **daily bookkeeping reconciliation, anomaly audit, and 4:00 AM wholesale produce buying guide** pipeline built for **ely.pos** (*Ely's Fresh Fruits & Veggies*).
 
 ## Problem It Replaced
 
@@ -8,7 +8,7 @@ Running a counter POS makes daytime checkout fast, but closing out the store eac
 1. Pulling daily orders and separating walk-in vs. neighborhood delivery sales across subdivision phases.
 2. Cleaning floating-point precision artifacts from historical JS totals into an exact centavo bookkeeper ledger.
 3. Catching unclosed `Pending` delivery tickets and unusual bulk orders before closing.
-4. Estimating tomorrow's 4:00 AM wholesale produce buying list from memory instead of 7-day SKU velocity.
+4. Estimating tomorrow's 4:00 AM wholesale produce buying list from memory instead of 7-day sales pace.
 
 ## Architecture
 
@@ -25,7 +25,7 @@ flowchart LR
 
 ### Core Engineering Decisions
 - **Strictly Read-Only on Production POS:** Connects to `freshbyely` Cloud Firestore using `firebase-admin` with zero `.set()`, `.update()`, or `.delete()` operations. Live counter operations are never touched.
-- **Deterministic Financial Math, AI Synthesis Only:** All centavo rounding, order reconciliation, variance detection, and 7-day velocity ratios run in pure Python (`decimal.Decimal`). Gemini (`gemini-3.8-flash` via `google-genai`) only receives verified numeric summaries under a strict Pydantic schema (`OpsBriefing`) to generate the owner's produce-buying briefing.
+- **Deterministic Financial Math, AI Synthesis Only:** All centavo rounding, order reconciliation, variance detection, and 7-day sales pace ratios run in pure Python (`decimal.Decimal`). Gemini (`gemini-3.5-flash-lite` via `google-genai`) only receives verified numeric summaries under a strict Pydantic schema (`OpsBriefing`) to generate the owner's produce-buying briefing.
 - **Resilient Fallback:** If `GEMINI_API_KEY` is absent or rate-limited, a deterministic rule-based briefing engine runs automatically so the daily ledger and email never fail silently.
 - **Zero-Cost Cloud Hosting:** Runs on GitHub Actions (`cron: "0 13 * * *"` = 9:00 PM PHT) + Gmail SMTP + Gemini free tier (~250–350 Firestore reads/day).
 

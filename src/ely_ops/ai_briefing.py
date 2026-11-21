@@ -70,8 +70,8 @@ def _build_verified_payload(report: DailyReport) -> dict:
             "today_qty": float(s.today_qty),
             "today_revenue_php": float(s.today_revenue),
             "trailing_7d_daily_avg_qty": float(s.trailing_7d_daily_avg),
-            "velocity_ratio": float(s.velocity_ratio) if s.velocity_ratio is not None else None,
-            "restock_signal": s.restock_signal,
+            "times_normal_sales": float(s.velocity_ratio) if s.velocity_ratio is not None else None,
+            "morning_market_advice": s.restock_signal,
         }
         for s in report.sku_velocities[:15]
     ]
@@ -151,26 +151,30 @@ def build_fallback_briefing(report: DailyReport) -> OpsBriefing:
         lower_name = sku.sku_name.lower()
         is_perishable = any(k in lower_name for k in PERISHABLE_KEYWORDS)
         qty_str = _fmt_qty(sku.today_qty)
-        if sku.restock_signal == "HIGH":
+        if sku.restock_signal in ("BUY MORE", "HIGH"):
             if is_perishable:
                 action = (
-                    f"Moved {qty_str} {sku.unit} ({sku.velocity_ratio}x 7d avg). "
-                    "Increase tomorrow's buy by 15-20%, but cap buffer to avoid spoilage."
+                    f"Sold {qty_str} {sku.unit} ({sku.velocity_ratio}x usual). "
+                    "Increase tomorrow's buy slightly, but keep buffers tight to avoid spoilage."
                 )
             else:
                 action = (
-                    f"Moved {qty_str} {sku.unit} ({sku.velocity_ratio}x 7d avg). "
-                    "Restock aggressively (+25% buffer) for tomorrow's 4 AM market run."
+                    f"Sold {qty_str} {sku.unit} ({sku.velocity_ratio}x usual). "
+                    "Buy extra buffer for tomorrow's 4:00 AM market run."
                 )
-        elif sku.restock_signal == "NEW":
+        elif sku.restock_signal in ("NEW ITEM", "NEW"):
             action = (
-                f"Sold {qty_str} {sku.unit} today with no prior 7-day movement. "
-                "Keep a modest replenishment batch until repeat demand confirms."
+                f"Sold {qty_str} {sku.unit} today with no sales in past 7 days. "
+                "Buy small test batch."
+            )
+        elif sku.restock_signal in ("BUY LESS", "LOW"):
+            action = (
+                f"Slower sales today ({qty_str} {sku.unit}); buy conservatively."
             )
         else:
             action = (
-                f"Steady volume at {qty_str} {sku.unit} "
-                f"(₱{sku.today_revenue:,.2f}); maintain standard daily par level."
+                f"Steady sales at {qty_str} {sku.unit} "
+                f"(₱{sku.today_revenue:,.2f}); buy regular daily amount."
             )
 
         restock.append(
@@ -286,13 +290,15 @@ def generate_ops_briefing(
 
         system_instruction = (
             "You are an experienced Philippine fresh-produce retail operations lead and "
-            "bookkeeper advising the owner of Ely's Fresh Fruits & Veggies. "
+            "bookkeeper advising the senior citizen store owner of Ely's Fresh Fruits & Veggies. "
             "Use ONLY the verified numbers provided in the JSON payload. NEVER invent "
             "prices, totals, or SKUs not present in the input. "
+            "Use clear, senior-friendly language. Avoid jargon like 'velocity' or 'variance ratios'. "
+            "In restock_priorities, 'signal' MUST strictly be one of: 'BUY MORE', 'NORMAL', 'BUY LESS', or 'NEW ITEM'. "
             "Apply practical fresh-produce buying heuristics: leafy greens and ripe "
             "fruits spoil within 1-2 days (keep buffers tight even on spikes), whereas "
             "hardy produce (onions, garlic, potatoes, squash, eggs) can carry higher "
-            "restock buffers. Be concise, practical, and zero fluff."
+            "buffers. Be concise, practical, respectful, and zero fluff."
         )
         prompt = (
             "Generate the End-of-Day Owner & Bookkeeper Ops Briefing strictly matching "

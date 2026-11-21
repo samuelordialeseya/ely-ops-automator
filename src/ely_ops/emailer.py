@@ -11,8 +11,12 @@ from ely_ops.config import Settings
 from ely_ops.models import DailyReport, OpsBriefing
 
 SIGNAL_COLORS = {
-    "HIGH": ("#9A3412", "#FFEDD5"),
+    "BUY MORE": ("#9A3412", "#FFEDD5"),
     "NORMAL": ("#166534", "#DCFCE7"),
+    "BUY LESS": ("#475569", "#F1F5F9"),
+    "NEW ITEM": ("#1D4ED8", "#DBEAFE"),
+    # Legacy fallbacks
+    "HIGH": ("#9A3412", "#FFEDD5"),
     "LOW": ("#475569", "#F1F5F9"),
     "NEW": ("#1D4ED8", "#DBEAFE"),
 }
@@ -34,7 +38,7 @@ def render_plaintext_email(report: DailyReport, briefing: OpsBriefing) -> str:
         "PERFORMANCE",
         f"  {briefing.performance_summary}",
         "",
-        "TOMORROW'S RESTOCK PRIORITIES",
+        "4:00 AM WHOLESALE MARKET BUYING GUIDE",
     ]
     if briefing.restock_priorities:
         for item in briefing.restock_priorities:
@@ -42,7 +46,7 @@ def render_plaintext_email(report: DailyReport, briefing: OpsBriefing) -> str:
                 f"  - [{item.signal}] {item.item_name} ({item.unit}): {item.suggested_action}"
             )
     else:
-        lines.append("  - No restock priorities flagged.")
+        lines.append("  - No market buying recommendations flagged.")
 
     lines.extend(["", "ANOMALIES & BOOKKEEPER NOTES"])
     for note in briefing.anomalies_to_review:
@@ -93,7 +97,7 @@ def render_html_email(report: DailyReport, briefing: OpsBriefing) -> str:
     if not restock_rows_html:
         restock_rows_html = (
             '<tr><td colspan="3" style="padding:12px;color:#64748B;font-size:13px;">'
-            "No restock priorities generated for this date.</td></tr>"
+            "No market buying recommendations generated for this date.</td></tr>"
         )
 
     anomaly_items_html = "".join(
@@ -124,7 +128,7 @@ def render_html_email(report: DailyReport, briefing: OpsBriefing) -> str:
         {esc(report.store_name)}
       </div>
       <h1 style="margin:6px 0 4px 0;font-size:21px;line-height:1.3;font-weight:700;color:#FFFFFF;">
-        End-of-Day Bookkeeping &amp; Restock Briefing
+        End-of-Day Bookkeeping &amp; Market Buying Briefing
       </h1>
       <div style="font-size:13px;color:#CBD5E1;">
         Store Date: <strong>{esc(report.target_date)}</strong>
@@ -166,14 +170,14 @@ def render_html_email(report: DailyReport, briefing: OpsBriefing) -> str:
       </p>
 
       <h2 style="margin:0 0 10px 0;font-size:14px;text-transform:uppercase;letter-spacing:0.04em;color:#475569;">
-        4:00 AM Wholesale Restock Priorities
+        4:00 AM Wholesale Market Buying Guide
       </h2>
       <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:22px;">
         <thead>
           <tr style="background:#F8FAFC;">
-            <th align="left" style="padding:9px 12px;font-size:11px;text-transform:uppercase;color:#64748B;border-bottom:1px solid #E2E8F0;">SKU</th>
-            <th align="left" style="padding:9px 12px;font-size:11px;text-transform:uppercase;color:#64748B;border-bottom:1px solid #E2E8F0;">Signal</th>
-            <th align="left" style="padding:9px 12px;font-size:11px;text-transform:uppercase;color:#64748B;border-bottom:1px solid #E2E8F0;">Action</th>
+            <th align="left" style="padding:9px 12px;font-size:11px;text-transform:uppercase;color:#64748B;border-bottom:1px solid #E2E8F0;">Item</th>
+            <th align="left" style="padding:9px 12px;font-size:11px;text-transform:uppercase;color:#64748B;border-bottom:1px solid #E2E8F0;">Morning Advice</th>
+            <th align="left" style="padding:9px 12px;font-size:11px;text-transform:uppercase;color:#64748B;border-bottom:1px solid #E2E8F0;">Action / Recommendation</th>
           </tr>
         </thead>
         <tbody>
