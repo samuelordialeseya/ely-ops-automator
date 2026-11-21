@@ -2,6 +2,12 @@
 
 Scheduled, read-only **daily bookkeeping reconciliation, anomaly audit, and 4:00 AM wholesale produce buying guide** pipeline built for **ely.pos** (*Ely's Fresh Fruits & Veggies*).
 
+## Walkthrough Video
+
+[![Watch 1080p Narrated Walkthrough (1:50)](docs/demo_thumbnail.png)](https://raw.githubusercontent.com/samuelordialeseya/ely-ops-automator/main/docs/ely_ops_demo_1080p.mp4)
+
+> Click the preview above to play the **1080p narrated walkthrough** ([`docs/ely_ops_demo_1080p.mp4`](docs/ely_ops_demo_1080p.mp4), 1:50, 7.9 MB).
+
 ## Problem It Replaced
 
 Running a counter POS makes daytime checkout fast, but closing out the store each night was still manual and error-prone:

@@ -8,8 +8,10 @@ credentials*.json
 
 # Runtime outputs & previews
 output/
+video_generator/build/
 *.csv
 *.html
+!video_generator/stage.html
 
 # Python artifacts
 .venv/
